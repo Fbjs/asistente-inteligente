@@ -1,0 +1,6 @@
+{
+  "buenos_dominios": ["linkedin.com", "chileempresas.cl", "kompass.cl", "empresaactualizada.cl", "cl"],
+  "malos_dominios": ["youtube.com", "twitter.com", "tiktok.com", "facebook.com"],
+  "palabras_buenas": ["contacto", "empresa", "nosotros", "dirección", "ubicación", "servicios", "quiénes somos"],
+  "palabras_malas": ["opinión", "noticia", "blog", "foro", "video"]
+}
