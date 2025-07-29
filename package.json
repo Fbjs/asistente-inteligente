@@ -13,7 +13,8 @@
     "axios": "^1.10.0",
     "dotenv": "^17.0.1",
     "openai": "^5.8.2",
-    "puppeteer": "^24.11.2",
+    "puppeteer": "^24.14.0",
+    "string-similarity": "^4.0.4",
     "xlsx": "^0.18.5"
   }
 }

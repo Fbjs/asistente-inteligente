@@ -9,6 +9,8 @@ const scrapearContenido = require('./helpers/scrapearContenido');
 const interpretarConGPT = require('./helpers/interpretarConGPT');
 const { getTotalTokens } = require('./helpers/interpretarConGPT');
 const { getTotalConsultas } = require('./helpers/buscarEnSerper');
+const stringSimilarity = require('string-similarity');
+
 
 const criterios = require('./criterios.json');
 
@@ -24,7 +26,8 @@ async function procesarEmpresas() {
   console.log(`📄 Se encontraron ${empresas.length} empresas para procesar.`);
 
   for (const empresa of empresas) {
-    const { nombre, rut } = empresa;
+    const { nombre, rut, direccion_referencia, comuna_referencia, region_referencia } = empresa;
+
     console.log(`\n🔍 Procesando empresa: ${nombre} | RUT: ${rut}`);
 
     // Generar variantes de búsqueda
@@ -73,12 +76,49 @@ async function procesarEmpresas() {
       console.warn(`⚠️ No se encontró teléfono para ${nombre}`);
     }
 
-    // Agregar al resultado final
+    // Evaluar coincidencia
+    const coincideDireccion = compararDireccion(interpretacion, {
+      direccion: direccion_referencia,
+      comuna: comuna_referencia,
+      region: region_referencia
+    });
+
+    const urlsExtendidas = {};
+    urlsUnicas.slice(0, 6).forEach((url, index) => {
+      const urlLimpia = url.replace(/^https?:\/\//, '').replace(/www\./, '').split(/[\/?#]/)[0];
+      const similitud = stringSimilarity.compareTwoStrings(nombre.toLowerCase(), urlLimpia.toLowerCase());
+      urlsExtendidas[`url_${index + 1}`] = url;
+      urlsExtendidas[`similitud_${index + 1}`] = `${(similitud * 100).toFixed(1)}%`;
+    });
+
+
+    let similitudSitioWeb = '';
+    if (interpretacion.sitio_web && interpretacion.sitio_web.trim() !== '') {
+      const sitioLimpio = interpretacion.sitio_web
+        .replace(/^https?:\/\//, '')
+        .replace(/www\./, '')
+        .split(/[\/?#]/)[0];
+
+      const similitud = stringSimilarity.compareTwoStrings(nombre.toLowerCase(), sitioLimpio.toLowerCase());
+      similitudSitioWeb = `${(similitud * 100).toFixed(1)}%`;
+    }
+
+
     resultados.push({
       empresa: nombre,
       rut,
-      ...interpretacion
+      ...interpretacion,
+      direccion_referencia,
+      comuna_referencia,
+      region_referencia,
+      acierto_direccion: coincideDireccion,
+      similitud_sitio_web: similitudSitioWeb,
+      ...urlsExtendidas
     });
+
+
+
+
 
     console.log(`📥 Resultado para ${nombre}:`);
     console.log(interpretacion);
@@ -100,5 +140,47 @@ async function procesarEmpresas() {
   const costoUSD = (tokens * 0.01) / 1000; // Asumiendo GPT-4 solo prompt
   console.log(`💵 Costo estimado GPT-4 (solo entrada): $${costoUSD.toFixed(4)} USD`);
 }
+
+
+function normalizarDireccion(texto) {
+  return texto?.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // elimina tildes
+    .replace(/\s+/, ' ')                              // espacios dobles
+    .replace(/\b(av|avda|avenida)\b/g, '')            // quita prefijos como avenida
+    .replace(/[^\w\s]/g, '')                          // quita signos de puntuación
+    .trim() || '';
+}
+
+function extraerDireccionBase(texto) {
+  if (!texto) return '';
+  // Mantén solo palabras y número principal (ej: 3356)
+  const sinComplementos = texto.replace(/\s+\d{1,5}(?:\s.*)?$/, match => {
+    const soloNumero = match.match(/\d+/);
+    return soloNumero ? ' ' + soloNumero[0] : '';
+  });
+  return normalizarDireccion(sinComplementos);
+}
+
+function compararDireccion(gpt, ref) {
+  const dirGPT = extraerDireccionBase(gpt.direccion);
+  const comGPT = normalizarDireccion(gpt.comuna);
+  const regGPT = normalizarDireccion(gpt.region);
+
+  const dirRef = extraerDireccionBase(ref.direccion);
+  const comRef = normalizarDireccion(ref.comuna);
+  const regRef = normalizarDireccion(ref.region);
+
+  if (
+    (dirGPT.includes(dirRef) || dirRef.includes(dirGPT)) &&
+    comGPT === comRef &&
+    regGPT === regRef
+  ) {
+    return 'Exacto';
+  }
+
+  return 'Incorrecto';
+}
+
+
 
 procesarEmpresas();
