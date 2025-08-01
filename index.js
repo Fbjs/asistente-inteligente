@@ -10,9 +10,16 @@ const interpretarConGPT = require('./helpers/interpretarConGPT');
 const { getTotalTokens } = require('./helpers/interpretarConGPT');
 const { getTotalConsultas } = require('./helpers/buscarEnSerper');
 const stringSimilarity = require('string-similarity');
+const geocodeDireccion = require('./helpers/geocodeDireccion');
+
 
 
 const criterios = require('./criterios.json');
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 
 async function procesarEmpresas() {
   // Leer archivo Excel de entrada
@@ -103,20 +110,41 @@ async function procesarEmpresas() {
       similitudSitioWeb = `${(similitud * 100).toFixed(1)}%`;
     }
 
+    const direccionParaGeocodificar = interpretacion.direccion || direccion_referencia;
+    const comunaParaGeocodificar = interpretacion.comuna || comuna_referencia;
+    const regionParaGeocodificar = interpretacion.region || region_referencia;
+
+    const fullAddress = `${direccionParaGeocodificar}, ${comunaParaGeocodificar}, ${regionParaGeocodificar}, Chile`;
+    console.log('📍 Buscando coordenadas para:', fullAddress);
+
+    await sleep(1000); // Respetar Nominatim
+
+    const { lat, lng } = await geocodeDireccion(
+      direccionParaGeocodificar,
+      comunaParaGeocodificar,
+      regionParaGeocodificar
+    );
+
 
     resultados.push({
       empresa: nombre,
       rut,
-      ...interpretacion,
+      telefono: interpretacion.telefono,
+      email: interpretacion.email,
+      sitio_web: interpretacion.sitio_web,
+      similitud_sitio_web: similitudSitioWeb, // <--- justo después de sitio_web
+      direccion: interpretacion.direccion,
+      comuna: interpretacion.comuna,
+      region: interpretacion.region,
+      latitud: lat,
+      longitud: lng,
+      descripcion: interpretacion.descripcion,
       direccion_referencia,
       comuna_referencia,
       region_referencia,
       acierto_direccion: coincideDireccion,
-      similitud_sitio_web: similitudSitioWeb,
       ...urlsExtendidas
     });
-
-
 
 
 
