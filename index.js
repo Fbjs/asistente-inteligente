@@ -303,20 +303,29 @@ try {
 
         // Generar variantes y buscar URLs
         const variantes = [...new Set(generarVariantes(nombre, rut) || [])];
+        console.log(`\n🔍 Buscando "${nombre}" (${rut}) con ${variantes.length} variantes...`);
         let urls = [];
         for (const query of variantes) {
           const resultadosBusqueda = (await buscarEnSerper(query)) || [];
+          if (resultadosBusqueda.length === 0) {
+            console.warn(`⚠️ No se encontraron resultados para "${query}"`);
+          }
+          console.log(`🔗 ${resultadosBusqueda.length} resultados encontrados para "${query}"`);
           urls.push(...resultadosBusqueda);
         }
         const urlsUnicas = [...new Set(priorizarResultados(urls, criterios) || [])];
+        console.log(`🔗 ${urlsUnicas.length} URLs únicas priorizadas encontradas para "${nombre}" (${rut})`);
 
         // Procesar cada URL priorizada
         for (const url of urlsUnicas.slice(0, 6)) {
           try {
+            console.log(`🔗 Procesando URL: ${url}`);
             const contenido = await scrapearContenido(url);
+            console.log(`📄 Contenido scrapeado de ${url} (${contenido.contenido?.length || 0} caracteres)`);
             if (!contenido || (!contenido.contenido || contenido.contenido.length < 50)) continue;
-
+            console.log(`📝 Contenido scrapeado: ${contenido.contenido.slice(0, 100)}...`);
             const interpretacion = await interpretarConGPT(nombre, rut, contenido.contenido) || {};
+            console.log(`🧠 Interpretación de GPT: ${JSON.stringify(interpretacion, null, 2)}`);
 
             // Validación de similitud
             if (
