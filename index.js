@@ -352,6 +352,7 @@ try {
               error: interpretacion.error || ''
             });
           } catch (e) {
+            console.error(`❌ Error procesando URL ${url}:`, e?.message || e);
             resultadosEmpresa.push({
               empresa: empresa?.nombre || '',
               rut: empresa?.rut || '',
