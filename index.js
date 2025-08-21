@@ -64,23 +64,13 @@ try {
   }
 
   function compararDireccion(gpt, ref) {
-    const dirGPT = extraerDireccionBase(gpt?.direccion);
-    const comGPT = normalizarDireccion(gpt?.comuna);
-    const regGPT = normalizarDireccion(gpt?.region);
+    // Extrae el primer número de cada dirección
+    const numGPT = (gpt?.direccion || '').match(/\d+/);
+    const numRef = (ref?.direccion_referencia || '').match(/\d+/);
 
-    const dirRef = extraerDireccionBase(ref?.direccion);
-    const comRef = normalizarDireccion(ref?.comuna);
-    const regRef = normalizarDireccion(ref?.region);
-
-    const comunaOK = (comGPT && comRef) ? comGPT === comRef : true;
-    const regionOK = (regGPT && regRef) ? regGPT === regRef : true;
-
-    if (
-      dirGPT && dirRef &&
-      (dirGPT.includes(dirRef) || dirRef.includes(dirGPT)) &&
-      comunaOK && regionOK
-    ) return 'Exacto';
-
+    if (numGPT && numRef && numGPT[0] === numRef[0]) {
+      return 'Exacto';
+    }
     return 'Incorrecto';
   }
 
@@ -338,6 +328,15 @@ try {
               interpretacion.error = 'Datos dudosos: posible mezcla de empresas';
             }
 
+            const similitudDominio = interpretacion.sitio_web
+              ? similitudNombreVsDominio(nombre, interpretacion.sitio_web)
+              : 0;
+
+            console.log(`🔎 Similitud nombre vs dominio (${nombre} vs ${interpretacion.sitio_web}): ${(similitudDominio * 100).toFixed(1)}%`);
+
+            const direccionComparacion = compararDireccion(interpretacion, empresa);
+            console.log(`📍 Comparación de dirección: ${direccionComparacion}`);
+
             resultadosEmpresa.push({
               empresa: nombre,
               rut,
@@ -345,10 +344,13 @@ try {
               email: interpretacion.email || '',
               sitio_web: interpretacion.sitio_web || '',
               direccion: interpretacion.direccion || '',
+              direccion_origen: empresa.direccion_referencia || '', // <-- usa direccion_referencia
               comuna: interpretacion.comuna || '',
               region: interpretacion.region || '',
               descripcion: interpretacion.descripcion || '',
               url_1: url,
+              similitud_nombre_dominio: `${(similitudDominio * 100).toFixed(1)}%`,
+              comparacion_direccion: direccionComparacion,
               error: interpretacion.error || ''
             });
           } catch (e) {
@@ -394,7 +396,8 @@ try {
     // Guardar resultados en Excel con orden de columnas predefinido
     const cols = [
       'empresa','rut','telefono','email','sitio_web',
-      'direccion','comuna','region','descripcion','url_1','error'
+      'direccion','direccion_origen','comuna','region','descripcion','url_1',
+      'similitud_nombre_dominio','comparacion_direccion','error'
     ];
 
     const normalizados = resultados.map(r => {
